@@ -1,0 +1,58 @@
+name: Rust Build and Release
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ runner.os }}-binary
+          path: target/release/my_binary_name
+
+  prepare_release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'created'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: binaries
+
+      - name: Prepare assets
+        run: |
+          zip -r release-${{ github.run_id }}-windows.zip binaries/Windows-latest-binary
+          zip -r release-${{ github.run_id }}-linux.zip binaries/Ubuntu-latest-binary
+          zip -r release-${{ github.run_id }}-mac.zip binaries/macOS-latest-binary
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-${{ github.run_id }}-windows.zip
+            release-${{ github.run_id }}-linux.zip
+            release-${{ github.run_id }}-mac.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
