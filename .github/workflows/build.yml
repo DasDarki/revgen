@@ -1,46 +1,38 @@
-name: Rust Release Build
+name: Release
+
+permissions:
+  contents: write
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - v[0-9]+.*
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Build
-        run: cargo build --release
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ runner.os }}-binary
-          path: target/release/
-
-  prepare_release:
-    needs: build
+  create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
         with:
-          path: binaries
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+  upload-assets:
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          files: |
-            binaries/Ubuntu-latest-binary/*
-            binaries/Windows-latest-binary/*
-            binaries/macOS-latest-binary/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          bin: revgen
+          target: ${{ matrix.target }}
+          token: ${{ secrets.GITHUB_TOKEN }}
