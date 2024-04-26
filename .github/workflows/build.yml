@@ -1,4 +1,4 @@
-name: Rust Build and Release
+name: Rust Release Build
 
 on:
   release:
@@ -18,38 +18,29 @@ jobs:
         with:
           toolchain: stable
           override: true
-
       - name: Build
         run: cargo build --release
-
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: ${{ runner.os }}-binary
-          path: target/release/my_binary_name
+          path: target/release/
 
   prepare_release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'created'
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
           path: binaries
 
-      - name: Prepare assets
-        run: |
-          zip -r release-${{ github.run_id }}-windows.zip binaries/Windows-latest-binary
-          zip -r release-${{ github.run_id }}-linux.zip binaries/Ubuntu-latest-binary
-          zip -r release-${{ github.run_id }}-mac.zip binaries/macOS-latest-binary
-
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-${{ github.run_id }}-windows.zip
-            release-${{ github.run_id }}-linux.zip
-            release-${{ github.run_id }}-mac.zip
+            binaries/Ubuntu-latest-binary/*
+            binaries/Windows-latest-binary/*
+            binaries/macOS-latest-binary/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
