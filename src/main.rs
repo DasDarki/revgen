@@ -52,60 +52,67 @@ fn main() {
     println!("}},");
 }
 
-fn optimize_distribution(target_average: f64, total_reviews: f64) -> (Vec<f64>, bool) {
+fn optimize_distribution(target_average: f64, total_reviews: f64, try_realism: bool) -> (Vec<f64>, bool) {
     let mut distribution = vec![0.0; 5];
-    let mut step_size = 0.01;
-    let mut is_approximate = false;
     let mut iterations = 0;
-    let max_iterations_before_approximation = 1000000; // Nach 1000 Iterationen erlauben wir eine größere Fehlermarge
+    let max_iterations_before_approximation = 1000;
+    let mut is_approximate = false;
 
-    for i in 0..5 {
-        distribution[i] = total_reviews / 5.0;
+    if try_realism {
+        let weights = match target_average {
+            avg if avg > 4.5 => vec![0.05, 0.05, 0.10, 0.20, 0.60],
+            avg if avg > 4.0 => vec![0.10, 0.10, 0.15, 0.25, 0.40],
+            avg if avg > 3.5 => vec![0.15, 0.20, 0.25, 0.25, 0.15],
+            avg if avg > 3.0 => vec![0.20, 0.25, 0.25, 0.20, 0.10],
+            _ => vec![0.30, 0.25, 0.20, 0.15, 0.10],
+        };
+
+        for (i, weight) in weights.iter().enumerate() {
+            distribution[i] = total_reviews * weight;
+        }
+    } else {
+        for value in distribution.iter_mut() {
+            *value = total_reviews / 5.0;
+        }
     }
 
     loop {
         let current_average = calculate_average(&distribution);
         let error = target_average - current_average;
 
-        if error.abs() < 0.01 {
+        if error.abs() < 0.01 || iterations > max_iterations_before_approximation {
             break;
-        } else if iterations > max_iterations_before_approximation && error.abs() < 0.05 {
+        }
+
+        adjust_distribution(&mut distribution, error, total_reviews);
+
+        iterations += 1;
+        if iterations > max_iterations_before_approximation {
             is_approximate = true;
             break;
         }
-
-        if error > 0.0 {
-            for i in (1..5).rev() {
-                distribution[i] += step_size * total_reviews;
-                distribution[i - 1] -= step_size * total_reviews;
-                if distribution[i - 1] < 0.0 {
-                    distribution[i - 1] = 0.0;
-                }
-            }
-        } else {
-            for i in 0..4 {
-                distribution[i] += step_size * total_reviews;
-                if i < 4 {
-                    distribution[i + 1] -= step_size * total_reviews;
-                    if distribution[i + 1] < 0.0 {
-                        distribution[i + 1] = 0.0;
-                    }
-                }
-            }
-        }
-
-        normalize_distribution(&mut distribution, total_reviews);
-
-        iterations += 1;
     }
 
     (distribution, is_approximate)
 }
 
-fn normalize_distribution(distribution: &mut [f64], total_reviews: f64) {
-    let current_total: f64 = distribution.iter().sum();
-    for value in distribution.iter_mut() {
-        *value *= total_reviews / current_total;
+fn adjust_distribution(distribution: &mut Vec<f64>, error: f64, total_reviews: f64) {
+    let step_size = 0.001 * total_reviews;
+
+    if error > 0.0 {
+        for i in 0..4 {
+            if distribution[i] > step_size {
+                distribution[i] -= step_size;
+                distribution[i + 1] += step_size;
+            }
+        }
+    } else {
+        for i in (1..5).rev() {
+            if distribution[i] > step_size {
+                distribution[i] -= step_size;
+                distribution[i - 1] += step_size;
+            }
+        }
     }
 }
 
