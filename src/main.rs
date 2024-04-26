@@ -32,11 +32,11 @@ fn main() {
     println!("In JavaScript form:");
 
     println!("{{");
-    println!("  '1': {},", distribution[0]);
-    println!("  '2': {},", distribution[1]);
-    println!("  '3': {},", distribution[2]);
-    println!("  '4': {},", distribution[3]);
-    println!("  '5': {}", distribution[4]);
+    println!("  1: {},", distribution[0]);
+    println!("  2: {},", distribution[1]);
+    println!("  3: {},", distribution[2]);
+    println!("  4: {},", distribution[3]);
+    println!("  5: {}", distribution[4]);
     println!("}};");
 }
 
