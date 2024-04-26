@@ -3,7 +3,7 @@ use clap::{App, Arg};
 fn main() {
     let matches = App::new("Ratings Optimizer")
         .version("1.0")
-        .author("Your Name")
+        .author("DasDarki")
         .about("Optimizes ratings distribution to meet a target average.")
         .arg(Arg::with_name("TARGET_AVERAGE")
             .help("The target average rating")
@@ -16,9 +16,14 @@ fn main() {
         .get_matches();
 
     let target_average: f64 = matches.value_of("TARGET_AVERAGE").unwrap().parse().expect("Target average must be a float");
+    if target_average < 1.0 || target_average > 5.0 {
+        eprintln!("Error: Target average must be between 1.0 and 5.0");
+        return;
+    }
+
     let total_reviews: f64 = matches.value_of("TOTAL_REVIEWS").unwrap().parse().expect("Total reviews must be a float");
 
-    let distribution = optimize_distribution(target_average, total_reviews);
+    let (distribution, is_approximate) = optimize_distribution(target_average, total_reviews);
     println!("Optimized distribution:");
     println!("1 Star: {}", distribution[0]);
     println!("2 Stars: {}", distribution[1]);
@@ -28,9 +33,11 @@ fn main() {
 
     let actual_average = calculate_average(&distribution);
     println!("Actual average: {}", actual_average);
+    if is_approximate {
+        println!("Note: The result is an approximation to the target average.");
+    }
 
     println!("In JavaScript form:");
-
     println!("{{");
     println!("  1: {},", distribution[0]);
     println!("  2: {},", distribution[1]);
@@ -40,9 +47,12 @@ fn main() {
     println!("}};");
 }
 
-fn optimize_distribution(target_average: f64, total_reviews: f64) -> Vec<f64> {
+fn optimize_distribution(target_average: f64, total_reviews: f64) -> (Vec<f64>, bool) {
     let mut distribution = vec![0.0; 5];
     let mut step_size = 0.01;
+    let mut is_approximate = false;
+    let mut iterations = 0;
+    let max_iterations_before_approximation = 1_000_000;
 
     for i in 0..5 {
         distribution[i] = total_reviews / 5.0;
@@ -53,6 +63,9 @@ fn optimize_distribution(target_average: f64, total_reviews: f64) -> Vec<f64> {
         let error = target_average - current_average;
 
         if error.abs() < 0.01 {
+            break;
+        } else if iterations > max_iterations_before_approximation && error.abs() < 0.05 {
+            is_approximate = true;
             break;
         }
 
@@ -75,9 +88,11 @@ fn optimize_distribution(target_average: f64, total_reviews: f64) -> Vec<f64> {
                 }
             }
         }
+
+        iterations += 1;
     }
 
-    distribution
+    (distribution, is_approximate)
 }
 
 fn calculate_average(distribution: &[f64]) -> f64 {
